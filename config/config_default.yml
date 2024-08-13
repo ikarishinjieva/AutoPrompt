@@ -8,25 +8,37 @@ dataset:
     semantic_sampling: False # Change to True in case you don't have M1. Currently there is an issue with faiss and M1
 
 annotator:
-    method : 'argilla'
+    method : 'llm_batch'
     config:
-        api_url: ''
-        api_key: 'admin.apikey'
-        workspace: 'admin'
-        time_interval: 5
+        instructions: ['Does this movie review reveal plot points, characters, the ending, world-building details, or other key information not yet publicly available for the movie? (Yes/No)',
+'Would a viewer''s enjoyment of the movie be diminished if they read this review beforehand? (Yes/No)',
+'Did the filmmakers intentionally withhold the information revealed in this review, intending for viewers to discover it organically during the movie? (Yes/No)',]
+        aggregation_mode: 'exist'  #'majority_vote',  'exist', or 'all'. exist/all is working only in case label_schema: ["Yes", "No"]!
+        estimator_config:
+            llm:
+                type: 'Azure'
+                name: 'gpt-4o-2024-05-13'
+    #            async_params:
+    #                retry_interval: 10
+    #                max_retries: 2
+                model_kwargs: {"seed": 220}
+            num_workers: 1
+            prompt: 'prompts/predictor/prediction.prompt'
+            mini_batch_size: 1  #change to >1 if you want to include multiple samples in the one prompt
+            mode: 'annotation'
 
 predictor:
     method : 'llm'
     config:
         llm:
-            type: 'OpenAI'
-            name: 'gpt-3.5-turbo-1106'
+            type: 'Azure'
+            name: 'gpt-4o-2024-05-13'
 #            async_params:
 #                retry_interval: 10
 #                max_retries: 2
             model_kwargs: {"seed": 220}
-        num_workers: 5
-        prompt: 'prompts/predictor_completion/prediction.prompt'
+        num_workers: 1
+        prompt: 'prompts/predictor/prediction.prompt'
         mini_batch_size: 1  #change to >1 if you want to include multiple samples in the one prompt
         mode: 'prediction'
 
@@ -48,8 +60,8 @@ eval:
     error_threshold: 0.5
 
 llm:
-    type: 'OpenAI'
-    name: 'gpt-4-1106-preview' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
+    type: 'Azure'
+    name: 'gpt-4o-2024-05-13' # This is the meta-prompt LLM, it should be a strong model. For example, using GPT-3.5 will cause an error in many cases.
     temperature: 0.8
 
 stop_criteria:

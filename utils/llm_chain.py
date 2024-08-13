@@ -3,7 +3,6 @@ from langchain.chains.openai_functions import (
 from utils.config import get_llm, load_prompt
 from langchain_community.callbacks import get_openai_callback
 import asyncio
-from langchain.chains import LLMChain
 import importlib
 from pathlib import Path
 from tqdm import trange, tqdm
@@ -28,13 +27,12 @@ class DummyCallback:
 def get_dummy_callback():
     return DummyCallback()
 
-
 class ChainWrapper:
     """
     A wrapper for a LLM chain
     """
 
-    def __init__(self, llm_config, prompt_path: str, json_schema: dict = None, parser_func=None):
+    def __init__(self, llm_config, prompt_path: str, json_schema = None, parser_func=None):
         """
         Initialize a new instance of the ChainWrapper class.
         :param llm_config: The config for the LLM
@@ -66,10 +64,13 @@ class ChainWrapper:
                 if self.parser_func is not None:
                     result = self.parser_func(result)
             except Exception as e:
-                if e.http_status == 401:
+                if hasattr(e, 'http_status') and e.http_status == 401:
                     raise e
                 else:
-                    logging.error('Error in chain invoke: {}'.format(e.user_message))
+                    if hasattr(e, 'user_message'):
+                        logging.error('Error in chain invoke: {}'.format(e.user_message))
+                    else:
+                        raise e
                     result = None
             self.accumulate_usage += cb.total_cost
             return result
@@ -157,9 +158,10 @@ class ChainWrapper:
         Build the chain according to the LLM type
         """
         if (self.llm_config.type.lower() == 'openai' or self.llm_config.type.lower() == 'azure') and self.json_schema is not None:
-            self.chain = create_structured_output_runnable(self.json_schema, self.llm, self.prompt)
+            structured_llm = self.llm.with_structured_output(self.json_schema, method="json_mode")
+            self.chain = self.prompt | structured_llm
         else:
-            self.chain = LLMChain(llm=self.llm, prompt=self.prompt)
+            self.chain = self.prompt | self.llm
 
 
 def get_chain_metadata(prompt_fn: Path, retrieve_module: bool = False) -> dict:
@@ -192,6 +194,23 @@ def get_chain_metadata(prompt_fn: Path, retrieve_module: bool = False) -> dict:
     return result
 
 
+
+from pydantic import BaseModel, Field
+
+
+class ErrorAnalysisChainResult(BaseModel):
+    content: str = Field()
+    
+class StepPromptChainResult(BaseModel):
+    prompt: str = Field()
+
+class ReviewSample(BaseModel):
+    review: str = Field(description="The text of the movie review")
+    spoiler: str = Field(description="Indicates whether the review contains spoilers")
+
+class InitialChainResult(BaseModel):
+    samples: list[ReviewSample] = Field(default_factory=list, description="A list of movie reviews with spoiler information")
+    
 class MetaChain:
     """
     A wrapper for the meta-prompts chain
@@ -203,19 +222,19 @@ class MetaChain:
         :param config: An EasyDict configuration
         """
         self.config = config
-        self.initial_chain = self.load_chain('initial')
-        self.step_prompt_chain = self.load_chain('step_prompt')
-        self.step_samples = self.load_chain('step_samples')
-        self.error_analysis = self.load_chain('error_analysis')
+        self.initial_chain = self.load_chain('initial', InitialChainResult)
+        self.step_prompt_chain = self.load_chain('step_prompt', StepPromptChainResult)
+        self.step_samples = self.load_chain('step_samples', InitialChainResult)
+        self.error_analysis = self.load_chain('error_analysis', ErrorAnalysisChainResult)
 
-    def load_chain(self, chain_name: str) -> ChainWrapper:
+    def load_chain(self, chain_name: str, resultClass) -> ChainWrapper:
         """
         Load a chain according to the chain name
         :param chain_name: The name of the chain
         """
         metadata = get_chain_metadata(self.config.meta_prompts.folder / '{}.prompt'.format(chain_name))
         return ChainWrapper(self.config.llm, self.config.meta_prompts.folder / '{}.prompt'.format(chain_name),
-                            metadata['json_schema'], metadata['parser_func'])
+                            resultClass, metadata['parser_func'])
 
     def calc_usage(self) -> float:
         """

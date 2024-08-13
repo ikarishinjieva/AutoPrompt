@@ -21,4 +21,12 @@ Guidelines:
     - A summary of the common failure cases, try to cluster the failure cases into groups and describe each group.
 3. The total length of your analysis should be less than 200 token!
 ###
-Analysis:
+
+Remember, follow carefully after the exact task instructions!
+
+answer in json format, example:
+```
+{{
+  "content": "(Your analysis)"
+}}
+```

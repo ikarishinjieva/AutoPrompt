@@ -111,6 +111,7 @@ class OptimizationPipeline:
         if 'label_schema' in self.config.dataset.keys():
             prompt_input["labels"] = json.dumps(self.config.dataset.label_schema)
         prompt_suggestion = self.meta_chain.step_prompt_chain.invoke(prompt_input)
+        prompt_suggestion = prompt_suggestion.dict()
         self.log_and_print(f'Previous prompt score:\n{self.eval.mean_score}\n#########\n')
         self.log_and_print(f'Get new prompt:\n{prompt_suggestion["prompt"]}')
         self.batch_id += 1
@@ -139,6 +140,8 @@ class OptimizationPipeline:
 
             samples_batches = self.meta_chain.step_samples.batch_invoke(batch_inputs,
                                                                          self.config.meta_prompts.num_workers)
+            samples_batches = [a.dict() if hasattr(a, "dict") else a for a in samples_batches]
+            
             new_samples = [element for sublist in samples_batches for element in sublist['samples']]
             new_samples = self.dataset.remove_duplicates(new_samples)
             self.dataset.add(new_samples, self.batch_id)
@@ -189,6 +192,8 @@ class OptimizationPipeline:
                                                    self.config.meta_prompts.samples_generation_batch)
 
         samples_batches = self.meta_chain.initial_chain.batch_invoke(batch_inputs, self.config.meta_prompts.num_workers)
+        samples_batches = [a.dict() if hasattr(a, "dict") else a for a in samples_batches]
+        
         samples_list = [element for sublist in samples_batches for element in sublist['samples']]
         samples_list = self.dataset.remove_duplicates(samples_list)
         self.dataset.add(samples_list, 0)
@@ -235,7 +240,7 @@ class OptimizationPipeline:
             self.wandb_run.log(
                 {"Prompt": wandb.Html(f"<p>{self.cur_prompt}</p>"), "Samples": wandb.Table(dataframe=random_subset)},
                 step=self.batch_id)
-
+        
         logging.info('Running annotator')
         records = self.annotator.apply(self.dataset, self.batch_id)
         self.dataset.update(records)

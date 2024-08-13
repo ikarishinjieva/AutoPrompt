@@ -7,3 +7,11 @@ Given a list of {batch_size} samples classify them according to the following ta
 {samples}
 ##
 Remember, follow carefully after the exact task instructions!
+
+answer in json format, example:
+```
+{{
+  "id": 8,
+  "prediction": "Yes"
+}}
+```

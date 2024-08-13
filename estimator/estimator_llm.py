@@ -3,6 +3,12 @@ from pathlib import Path
 from dataset.base_dataset import DatasetBase
 import pandas as pd
 
+from pydantic import BaseModel, Field
+
+class LLMEstimatorResult(BaseModel):
+    id: int = Field()
+    prediction: str = Field()
+
 class LLMEstimator:
     """
     A wrapper for an estimator using LLM
@@ -50,7 +56,7 @@ class LLMEstimator:
                 chain_metadata['json_schema'],
                 label_schema
             )
-        self.chain = ChainWrapper(self.opt.llm, self.opt.prompt, chain_metadata['json_schema'],
+        self.chain = ChainWrapper(self.opt.llm, self.opt.prompt, LLMEstimatorResult,
                                   chain_metadata['parser_func'])
 
     def apply_dataframe(self, record: pd.DataFrame):
@@ -73,7 +79,9 @@ class LLMEstimator:
                                       'samples': chain_input})
 
         all_results = self.chain.batch_invoke(mini_batch_inputs, self.num_workers)
-        union_results = [element for sublist in all_results for element in sublist['results']]
+        all_results = [a.dict() for a in all_results]
+        # union_results = [element for sublist in all_results for element in sublist['results']]
+        union_results = all_results
         for res in union_results:
             record.loc[res['id'], self.mode] = res['prediction']
         return record

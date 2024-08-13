@@ -3,6 +3,10 @@ from utils.config import load_yaml, modify_input_for_ranker, validate_generation
 import argparse
 import os
 from estimator.estimator_llm import LLMEstimator
+
+from langchain.globals import set_verbose
+set_verbose(True)
+
 # General Training Parameters
 parser = argparse.ArgumentParser()
 

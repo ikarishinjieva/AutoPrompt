@@ -123,7 +123,7 @@ class Eval:
         analysis = self.analyzer.invoke(prompt_input)
 
         self.history.append({'prompt': prompt, 'score': self.mean_score,
-                             'errors': self.errors, 'confusion_matrix': conf_matrix, 'analysis': analysis['text']})
+                             'errors': self.errors, 'confusion_matrix': conf_matrix, 'analysis': analysis.content})
 
     def extract_errors(self) -> pd.DataFrame:
         """

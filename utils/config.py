@@ -3,9 +3,8 @@ from easydict import EasyDict as edict
 from langchain.prompts import PromptTemplate
 from langchain_community.chat_models import ChatOpenAI
 from pathlib import Path
-from langchain.llms.huggingface_pipeline import HuggingFacePipeline
-from langchain_community.chat_models import AzureChatOpenAI
-from langchain.chains import LLMChain
+from langchain_community.llms import HuggingFacePipeline
+from langchain_openai import AzureChatOpenAI
 import logging
 
 LLM_ENV = yaml.safe_load(open('config/llm_env.yml', 'r'))
@@ -114,13 +113,13 @@ def modify_input_for_ranker(config, task_description, initial_prompt):
     init_prompt_setup = load_prompt(modifiers_config['ranker']['prompt_mod'])
 
     llm = get_llm(config.llm)
-    task_llm_chain = LLMChain(llm=llm, prompt=task_desc_setup)
+    task_llm_chain = task_desc_setup | llm
     task_result = task_llm_chain(
         {"task_description": task_description})
     mod_task_desc = task_result['text']
     logging.info(f"Task description modified for ranking to: \n{mod_task_desc}")
 
-    prompt_llm_chain = LLMChain(llm=llm, prompt=init_prompt_setup)
+    prompt_llm_chain = init_prompt_setup | llm
     prompt_result = prompt_llm_chain({"prompt": initial_prompt, 'label_schema': config.dataset.label_schema})
     mod_prompt = prompt_result['text']
     logging.info(f"Initial prompt modified for ranking to: \n{mod_prompt}")

@@ -1,7 +1,6 @@
 import argilla as rg
 import time
 import pandas as pd
-from argilla.client.singleton import active_client
 from utils.config import Color
 from dataset.base_dataset import DatasetBase
 import json
@@ -19,11 +18,11 @@ class ArgillaEstimator:
         """
         try:
             self.opt = opt
-            rg.init(
+            self.client = rg.Argilla(
                 api_url=opt.api_url,
-                api_key=opt.api_key,
-                workspace=opt.workspace
+                api_key=opt.api_key
             )
+            self.workspace = self.client.workspaces(opt.workspace)
             self.time_interval = opt.time_interval
         except:
             raise Exception("Failed to connect to argilla, check connection details")
@@ -51,7 +50,8 @@ class ArgillaEstimator:
         """
         #TODO: sort visualization according to batch_id descending
         query = "metadata.batch_id:{}".format(batch_id)
-        result = rg.load(name=dataset_name, query=query)
+        dataset = rg.Dataset(dataset_name)
+        result = dataset.records(query=query).to_datasets()
         df = result.to_pandas()
         if len(df) == len(batch_records):
             return
@@ -67,8 +67,8 @@ class ArgillaEstimator:
             #     config['prediction'] = row['prediction']  # TODO: fix it incorrect type!!!
             if not(row[['annotation']].isnull().any()):  # TODO: fix it incorrect type!!!
                 config['annotation'] = row['annotation']
-            record_list.append(rg.TextClassificationRecord(**config))
-        rg.log(records=record_list, name=dataset_name)
+            record_list.append(rg.Record(fields=config))
+        dataset.records.log(records=record_list)
 
     def calc_usage(self):
         """
@@ -83,12 +83,12 @@ class ArgillaEstimator:
         :param dataset: DatasetBase object, contains all the processed records
         :param batch_id: The batch id to annotate
         """
-        current_api = active_client()
+        current_api = self.client
         try:
-            rg_dataset = current_api.datasets.find_by_name(dataset.name)
+            rg_dataset = current_api.datasets(dataset.name)
         except:
             self.initialize_dataset(dataset.name, dataset.label_schema)
-            rg_dataset = current_api.datasets.find_by_name(dataset.name)
+            rg_dataset = current_api.datasets(dataset.name)
         batch_records = dataset[batch_id]
         if batch_records.empty:
             return []
