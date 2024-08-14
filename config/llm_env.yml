@@ -4,9 +4,9 @@ openai:
   OPENAI_ORGANIZATION: ''
 
 azure:
-  AZURE_OPENAI_API_KEY: '2de3b03c4ebd4f1f8681ce7d86ef475d'
-  AZURE_OPENAI_ENDPOINT: 'https://tachikoma.openai.azure.com/'
-  OPENAI_API_VERSION: '2024-02-01'
+  AZURE_OPENAI_API_KEY: ''
+  AZURE_OPENAI_ENDPOINT: ''
+  OPENAI_API_VERSION: ''
 
 google:
   GOOGLE_API_KEY: ''
